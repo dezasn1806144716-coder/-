@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>カード積み上げゲーム</title>
+    <style>
+      body { background: #18212b; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 18px; } h1 { color: #f5d77a; } .panel { background: #293746; padding: 16px; border-radius: 12px; margin: 14px auto; max-width: 750px; } .cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; margin: 12px 0; min-height: 105px; align-items: center; } .card { width: 65px; height: 95px; background: #fff; color: #111; border-radius: 8px; display: flex; flex-direction: column; justify-content: space-between; padding: 6px; box-sizing: border-box; font-size: 19px; font-weight: bold; cursor: pointer; border: 3px solid transparent; transition: transform 0.2s, border-color 0.2s; user-select: none; } .card.selected { border-color: #ffca28; transform: translateY(-5px); } .card.black { color: #111; } .card.joker { color: #9c27b0; font-size: 16px; background: #f3e5f5; } .card small { font-size: 12px; } button { padding: 12px 17px; margin: 5px; border: 0; border-radius: 8px; background: #e8b94c; font-weight: bold; cursor: pointer; } button:disabled { opacity: .35; cursor: not-allowed; } button:hover:not(:disabled) { background: #ffdb76; } .score { color: #ffdc69; font-size: 25px; font-weight: bold; } .info { color: #cbd5df; line-height: 1.7; } #message { color: #ffdf79; min-height: 28px; font-weight: bold; } #history { max-height: 150px; overflow-y: auto; margin-top: 10px; border-top: 1px solid #3f5165; padding-top: 8px; text-align: left; padding-left: 10px; }
+    </style>
+  </head>
+  <body>
+    <h1>♠ カード積み上げゲーム ♣</h1>
+    <p class="info">数字を重ねてコンボを繋ぎ、高得点を目指そう！</p>
+    <div class="panel">
+      <div>山札：<span id="deckCount">0</span>枚</div>
+      <div class="score">合計得点：<span id="score">0.0000</span></div>
+      <div id="message">ゲームを開始してください。</div>
+      <button id="newGameBtn">新しいゲーム</button>
+    </div>
+    <div class="panel">
+      <h2>場のカード</h2>
+      <div id="field" class="cards"></div>
+      <div id="fieldInfo" class="info">まだカードがありません。</div>
+    </div>
+    <div class="panel">
+      <h2>あなたの手札</h2>
+      <div id="hand" class="cards"></div>
+      <div class="info">カードを選択して行動してください。</div>
+    </div>
+    <div class="panel">
+      <h2>行動</h2>
+      <button id="drawBtn">① 山札を引く（場を更新）</button>
+      <button id="stackBtn">② 選択カードを重ねる</button>
+      <button id="discardBtn">③ 選択カードを捨てる</button>
+      <button id="finishBtn">ゲーム終了</button>
+    </div>
+    <div class="panel">
+      <h2>ルール・得点履歴</h2>
+      <div class="info">
+        n回目に重ねたカードの得点は<br />
+        <strong>(1 ÷ 重ねた後の有効数字) × n(n+1) ÷ 2 × 10</strong>
+      </div>
+      <div id="history"></div>
+    </div>
+    <script>
+      let deck = []; let hand = []; let field = []; let score = 0; let selected = -1; let finished = false; const suits = ["♠","♣"]; document.getElementById("newGameBtn").onclick = newGame; document.getElementById("drawBtn").onclick = drawField; document.getElementById("stackBtn").onclick = stackCard; document.getElementById("discardBtn").onclick = discardCard; document.getElementById("finishBtn").onclick = finishGame; function shuffle(a) { for(let i=a.length-1; i>0; i--){ let j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; } function makeCard(suit, rank) { return {suit, rank, joker:false, effective:rank}; } function cardName(c) { if(c.joker) { return c.suit && c.suit !== "★" ? `JOKER(${c.suit})` : "JOKER"; } let r = c.rank===1 ? "A" : c.rank===11 ? "J" : c.rank===12 ? "Q" : c.rank===13 ? "K" : c.rank; return c.suit + r; } function newGame() { deck = []; suits.forEach(s => { for(let i=1; i<=13; i++){ deck.push(makeCard(s, i)); } }); deck.push({suit:"★", rank:0, joker:true, effective:0}); shuffle(deck); hand = []; field = []; score = 0; selected = -1; finished = false; for(let i=0; i<3; i++) { if(deck.length > 0) hand.push(deck.pop()); } document.getElementById("history").innerHTML = ""; if(deck.length > 0) { let c = deck.pop(); c.effective = c.joker ? 0 : c.rank; field = [c]; message("ゲーム開始！最初の場にカードが置かれました。手札は3枚です。"); } else { message("ゲーム開始！"); } render(); } function message(t) { document.getElementById("message").textContent = t; } function render() { document.getElementById("deckCount").textContent = deck.length; document.getElementById("score").textContent = score.toFixed(4); let h = document.getElementById("hand"); h.innerHTML = ""; hand.forEach((c, i) => { let d = createCardElement(c); if(i === selected) d.classList.add("selected"); d.onclick = () => { if(finished) return; selected = (selected === i) ? -1 : i; render(); }; h.appendChild(d); }); let f = document.getElementById("field"); f.innerHTML = ""; field.forEach(c => f.appendChild(createCardElement(c))); if(field.length === 0){ document.getElementById("fieldInfo").textContent = "場にカードはありません。"; } else { let top = field[field.length-1]; let stackCount = field.length - 1; document.getElementById("fieldInfo").textContent = "重ねた回数：" + stackCount + "回（場の枚数：" + field.length + "枚） ／ 最上段：" + cardName(top) + " ／ 有効数字：" + top.effective; } let isDeckEmpty = deck.length === 0; document.getElementById("drawBtn").disabled = finished || isDeckEmpty; document.getElementById("discardBtn").disabled = finished || selected < 0 || isDeckEmpty; let canStackSelected = (selected >= 0) && canStack(hand[selected]); document.getElementById("stackBtn").disabled = finished || selected < 0 || !canStackSelected; document.getElementById("finishBtn").disabled = finished || !isDeckEmpty; } function createCardElement(c) { let d = document.createElement("div"); d.className = "card" + (c.joker ? " joker" : " black"); let name = cardName(c); d.innerHTML = "<small>" + (c.joker ? "★" : "") + "</small>" + "<span>" + name + "</span><small>" + name + "</small>"; return d; } function canStack(c) { if(!c || field.length === 0) return false; let top = field[field.length-1]; let suit = top.suit; let topValue = top.effective; if(c.joker) return topValue < 14; if(c.rank <= topValue) return false; if(suit === "★") return true; return c.suit === suit; } function drawField() { if(finished || deck.length === 0) return; let c = deck.pop(); c.effective = c.joker ? 0 : c.rank; field = [c]; selected = -1; if(deck.length === 0) { message(cardName(c) + "を場に置きました。山札がなくなったので最終処理に入ります。"); } else { message(cardName(c) + "を場に置きました。前の場はリセットされました。"); } render(); } function stackCard() { if(selected < 0 || !canStack(hand[selected])) return; let pos = selected; let c = hand.splice(pos, 1)[0]; let top = field[field.length-1]; let newValue = c.joker ? top.effective + 1 : c.rank; if(c.joker) { c.suit = top.suit; } c.effective = newValue; field.push(c); let n = field.length - 1; let points = (1 / newValue) * (n * (n + 1) * 5); score += points; addHistory(cardName(c) + " (" + n + "回目)：(1/" + newValue + ")×" + (n*(n+1)*5) + " = " + points.toFixed(4) + "点"); selected = -1; if(deck.length > 0) { hand.splice(pos, 0, deck.pop()); message(cardName(c) + "を重ねました！ " + points.toFixed(4) + "点獲得。手札を補充しました。"); } else { message(cardName(c) + "を重ねました！ " + points.toFixed(4) + "点獲得。山札は残り0枚です。"); } render(); } function discardCard() { if(selected < 0 || deck.length === 0) return; let pos = selected; let c = hand.splice(pos, 1)[0]; let newCard = deck.pop(); hand.splice(pos, 0, newCard); selected = -1; if(deck.length === 0) { message(cardName(c) + "を捨て、最後の山札から" + cardName(newCard) + "を引き終えました。"); } else { message(cardName(c) + "を捨て、" + cardName(newCard) + "を引きました。"); } render(); } function addHistory(t) { let d = document.createElement("div"); d.textContent = t; d.className = "info"; let hist = document.getElementById("history"); hist.appendChild(d); hist.scrollTop = hist.scrollHeight; } function finishGame() { if(finished) return; finished = true; selected = -1; message("ゲーム終了！最終得点は " + score.toFixed(4) + " 点です。"); render(); }
+    </script>
+  </body>
+</html>
